@@ -13,6 +13,7 @@ parser.add_argument('--max-level', dest='max_level', type=int, default=10000)
 parser.add_argument('--print-tree', dest='print_tree', type=bool, default=False)
 parser.add_argument('--output', dest='output', type=str, default='')
 parser.add_argument('--collapse', nargs='*', default=[])
+parser.add_argument('--include', nargs='*', default=[])
 
 args = parser.parse_args()
 
@@ -105,10 +106,10 @@ def get_name(line):
         name = name[name.find('/', len('build/'))+1:]
         if name.startswith('seastar/gen/include/'):
             name = name[len('seastar/gen/include/'):]
-        else:
-            if name.startswith('gen/'):
-                name = name[len('gen/'):]
-            name = args.base + '/' + name
+        # else:
+        #    if name.startswith('gen/'):
+        #        name = name[len('gen/'):]
+        #    name = args.base + '/' + name
     if name.startswith('seastar/include/'):
         name = name[len('seastar/include/'):]
 
@@ -142,7 +143,38 @@ def fill_tree():
     fd.close()
 
 
+include_format = re.compile('\W*#include\W+["<](.+)[">]')
+
+
+def dfs_transitive_includes(parent, visited):
+    for item in parent.child.values():
+        dfs_transitive_includes(item, visited)
+
+    for node in parent.nodes.values():
+        path = node.name
+        if not os.path.isfile(path):
+            for inc in args.include:
+                if os.path.isfile(inc + '/' + path):
+                    path = inc + '/' + path
+                    break
+
+        if not os.path.isfile(path):
+            print("skipped: " + node.name, file=sys.stderr)
+            continue
+
+        file = open(path, mode='r')
+        for item in include_format.findall(file.read()):
+            # TODO: find target in fs
+            if item in visited:
+                continue
+            visited[item] = True
+            # TODO: put an edge into the tree
+            print(item)
+        file.close()
+
+
 fill_tree()
+dfs_transitive_includes(root, {})
 
 if args.print_tree:
     print(root)
