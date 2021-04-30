@@ -12,6 +12,7 @@ parser.add_argument('--base', default=".")
 parser.add_argument('--max-level', dest='max_level', type=int, default=10000)
 parser.add_argument('--print-tree', dest='print_tree', type=bool, default=False)
 parser.add_argument('--output', dest='output', type=str, default='')
+parser.add_argument('--collapse', nargs='*', default=[])
 
 args = parser.parse_args()
 
@@ -110,7 +111,14 @@ def get_name(line):
             name = args.base + '/' + name
     if name.startswith('seastar/include/'):
         name = name[len('seastar/include/'):]
-    return os.path.normpath(name)
+
+    name = os.path.normpath(name)
+
+    for prefix in args.collapse:
+        if name.startswith(prefix):
+            name = prefix
+
+    return name
 
 
 dot_format = re.compile('[^a-zA-Z0-9/.+_-]')
